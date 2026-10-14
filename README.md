@@ -18,6 +18,7 @@ y sigue los tutoriales para construir los dashboards y explorar las trazas.
 - `scripts/load_test.py` — generador de tráfico controlado.
 - `tests/` — pruebas con pytest + FastAPI TestClient.
 - `docker-compose.yml` — stack completo sobre la red interna `obsnet`.
+- `video/` — (opcional) diagrama y videos animados del lab hechos con Remotion (ver [`video/README.md`](./video/README.md)).
 
 ## Tutoriales (ruta principal: AWS CDK)
 
