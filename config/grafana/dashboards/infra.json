@@ -1,0 +1,147 @@
+{
+  "annotations": { "list": [] },
+  "description": "Métricas del sistema operativo de la instancia EC2 recolectadas por node_exporter (Prometheus). IMPORTANTE: estas NO son métricas nativas de Amazon CloudWatch; provienen del exporter instalado en la propia instancia.",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": ["obs-lab", "infra", "node_exporter"],
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "title": "Infraestructura EC2 (node_exporter · NO CloudWatch)",
+  "uid": "obs-lab-infra",
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "type": "text",
+      "title": "Origen de los datos",
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "markdown",
+        "content": "Estas gráficas usan métricas de **node_exporter** (sistema operativo de la EC2) vía **Prometheus**. **No** son métricas nativas de **Amazon CloudWatch**. Si en el futuro se añade CloudWatch, se señalará explícitamente en los paneles correspondientes."
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Uso de CPU (%)",
+      "description": "Porcentaje de CPU no inactiva, promedio de todos los núcleos. Origen: node_exporter (OS).",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU usada"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Memoria (usada vs disponible)",
+      "description": "Memoria disponible y usada en bytes. Origen: node_exporter (OS).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 3 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean", "last"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes",
+          "legendFormat": "Memoria usada"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "node_memory_MemAvailable_bytes",
+          "legendFormat": "Memoria disponible"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Uso de disco (%) — raíz /",
+      "description": "Porcentaje de uso del sistema de archivos raíz. Origen: node_exporter (OS).",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["last"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "100 - (node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"} * 100)",
+          "legendFormat": "{{mountpoint}} usado"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Actividad de red (bytes/s)",
+      "description": "Tráfico de red recibido y transmitido por interfaz. Origen: node_exporter (OS).",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "bottom", "calcs": ["mean"] } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])",
+          "legendFormat": "rx {{device}}"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])",
+          "legendFormat": "tx {{device}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Disponibilidad del exporter (up)",
+      "description": "1 = node_exporter responde al scrape de Prometheus; 0 = caído. Origen: Prometheus.",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 19 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "min": 0, "max": 1,
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } }
+          ]
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "up{job=\"node_exporter\"}",
+          "legendFormat": "node_exporter"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Estado de recolección (targets up)",
+      "description": "Número de targets de Prometheus respondiendo correctamente. Origen: Prometheus.",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 19 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(up)",
+          "legendFormat": "targets up"
+        }
+      ]
+    }
+  ]
+}

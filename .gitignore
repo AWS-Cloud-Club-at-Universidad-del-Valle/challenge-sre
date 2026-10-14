@@ -1,0 +1,16 @@
+# Secrets / local env
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+.pytest_cache/
+
+# Observability stack data dirs (local volumes)
+data/
+loki/data/
+grafana/data/
+prometheus/data/

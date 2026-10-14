@@ -1,0 +1,103 @@
+# Observability lab stack (Part 1). All services share the internal network
+# `obsnet`. Only grafana (3000) and api (8000) publish host ports; everything
+# else is internal-only and reached via SSH tunnel on EC2.
+#
+# NOTE: service-b, otel-collector and jaeger are added in Part 2 (FEAT-002).
+# The service-b scrape target and the Jaeger datasource are already referenced
+# here/in config so Part 2 only needs to add the services.
+
+networks:
+  obsnet:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+
+services:
+  api:
+    build:
+      context: ./app
+    image: obs-lab-api:1.0.0
+    container_name: obs-lab-api
+    environment:
+      OTEL_ENABLED: "${OTEL_ENABLED:-false}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}"
+    ports:
+      - "8000:8000"
+    networks:
+      - obsnet
+    restart: unless-stopped
+
+  node_exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: obs-lab-node-exporter
+    command:
+      - "--path.rootfs=/host"
+    pid: host
+    volumes:
+      # Mount the host root read-only so node_exporter reports host OS metrics.
+      - /:/host:ro
+    networks:
+      - obsnet
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: obs-lab-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - obsnet
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: obs-lab-loki
+    command: ["-config.file=/etc/loki/loki-config.yml"]
+    volumes:
+      - ./config/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    networks:
+      - obsnet
+    restart: unless-stopped
+
+  alloy:
+    image: grafana/alloy:v1.3.1
+    container_name: obs-lab-alloy
+    command:
+      - "run"
+      - "/etc/alloy/config.alloy"
+      - "--storage.path=/var/lib/alloy/data"
+    volumes:
+      - ./config/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    networks:
+      - obsnet
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: obs-lab-grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GF_SECURITY_ADMIN_PASSWORD:-admin}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - obsnet
+    restart: unless-stopped
