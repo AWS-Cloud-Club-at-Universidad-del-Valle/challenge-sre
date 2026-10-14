@@ -43,6 +43,9 @@ cdk destroy -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32 --profile
 
 Tras `cdk deploy`, abre Grafana en `http://<PublicIp>:3000` (output `GrafanaUrl`).
 
+> Si hay un despliegue activo, las credenciales y comandos de acceso (Grafana, túnel de
+> Jaeger, cómo apagar) quedan en `CREDENCIALES.txt` (ignorado por git, no se versiona).
+
 ## Apéndice opcional: arranque local (offline)
 
 Solo si quieres probar el stack **sin AWS** (no es la ruta del laboratorio). Requiere Docker

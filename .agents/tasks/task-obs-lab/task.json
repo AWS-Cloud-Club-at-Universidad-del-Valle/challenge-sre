@@ -1,7 +1,0 @@
-{
-  "task_id": "task-obs-lab",
-  "task_description": "Pivot the existing, locally-verified Docker observability lab to an 'AWS CDK auto-provisions everything' shape. A student runs AWS CDK (Python, v2) and the whole infrastructure comes up on ONE EC2 (t3.small, Amazon Linux 2023) whose user-data boots the existing docker-compose stack (api, service-b, Prometheus, Loki, Grafana Alloy, Grafana, node_exporter, OTel Collector, Jaeger). Tracing stays 100% OpenTelemetry -> OTel Collector -> Jaeger (NO X-Ray). The two Spanish tutorials are rewritten CDK-centric (deploy with CDK, build a CPU dashboard, build an API-responses dashboard, explore OTel traces in Jaeger). FEAT-001/002/003 (the base Docker stack) are already completed; this pivot adds FEAT-004 (CDK app) and FEAT-005 (tutorial rewrite). Validate with `cdk synth` only; do NOT run `cdk deploy` or create AWS resources.",
-  "status": "completed",
-  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005"],
-  "blocked_reason": null
-}

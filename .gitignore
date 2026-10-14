@@ -1,5 +1,8 @@
 # Secrets / local env
 .env
+# Credenciales de acceso del despliegue real (NUNCA versionar)
+CREDENCIALES.txt
+*.pem
 
 # Python
 __pycache__/
@@ -18,3 +21,6 @@ data/
 loki/data/
 grafana/data/
 prometheus/data/
+
+# Artefactos internos del workflow (no necesarios para el estudiante)
+.agents/
