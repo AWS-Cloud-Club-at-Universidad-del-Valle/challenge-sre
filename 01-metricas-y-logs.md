@@ -31,7 +31,8 @@ flowchart LR
     DEV -- "navegador" --> GRAF
 ```
 
-Solo **Grafana (3000)** y la **API (8000)** se exponen a tu IP. El resto queda interno.
+**Grafana (3000)**, la **API (8000)** y **Jaeger (16686, Parte 2)** se exponen a tu IP. El
+resto (Prometheus, Loki, OTel) queda interno.
 
 ---
 
@@ -55,9 +56,13 @@ pip install -r requirements.txt
 # Solo la primera vez en la cuenta/región:
 cdk bootstrap --profile stay
 
-# Despliega limitando el acceso a TU IP pública:
-cdk deploy --profile stay -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32 --require-approval never
+# Despliega (acceso abierto a internet por defecto, lab educativo):
+cdk deploy --profile stay --require-approval never
 ```
+
+> **Acceso.** Por defecto el lab abre Grafana, Jaeger y la API a todo internet
+> (`0.0.0.0/0`) para que sea fácil de usar en clase. Si prefieres restringir a tu propia IP,
+> añade `-c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32` al comando.
 
 **Resultado esperado:** al terminar (~3 min) CDK imprime las *Outputs*, entre ellas:
 
@@ -83,11 +88,11 @@ Si `docker ps` aún no muestra todo, espera 1–2 min: el *user-data* sigue arra
 
 ## 4. Entrar a Grafana
 
-1. Abre en el navegador la `GrafanaUrl` (ej. `http://184.195.63.162:3000`).
+1. Abre en el navegador la `GrafanaUrl` (ej. `http://<IP-PUBLICA>:3000`).
 2. Usuario `admin`, contraseña `changeme`.
 
-> Si no carga: tu IP pública pudo cambiar. Vuelve a ejecutar el `cdk deploy` del paso 3
-> (recalcula tu IP automáticamente).
+> Con acceso abierto, **cambia la contraseña** de Grafana (menú de perfil → *Change
+> password*) para que no quede expuesta con el valor por defecto.
 
 ---
 
@@ -182,10 +187,15 @@ En Grafana: **Explore → fuente Loki → ** consulta:
 
 | Puerto | Servicio | Acceso |
 |---|---|---|
-| 22 | SSH | Solo tu IP (o usa SSM, sin llaves) |
-| 3000 | Grafana | Solo tu IP |
-| 8000 | API | Solo tu IP |
-| 9090/3100/16686/4317 | Prometheus/Loki/Jaeger/OTel | **Cerrados** (internos; vía túnel SSM) |
+| 22 | SSH | Abierto (o usa SSM, sin llaves) |
+| 3000 | Grafana | Abierto a internet (`0.0.0.0/0`) |
+| 8000 | API | Abierto a internet |
+| 16686 | Jaeger (trazas, Parte 2) | Abierto a internet |
+| 9090/3100/4317 | Prometheus/Loki/OTel | **Cerrados** (internos; vía túnel SSM si hace falta) |
+
+> Lab educativo: por defecto todo está abierto a internet. Es cómodo para clase pero deja
+> Grafana (cambia su contraseña) y Jaeger (sin login) visibles para cualquiera. **Destruye
+> el stack al terminar.** Para restringir a tu IP: `-c allowedCidr=<tu-ip>/32`.
 
 ---
 
@@ -196,7 +206,7 @@ Mientras la EC2 esté encendida genera coste (~$15/mes si queda 24/7, + EBS + IP
 
 ```bash
 cd cdk
-cdk destroy --profile stay -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32
+cdk destroy --profile stay
 ```
 
 > Un simple *stop* de la EC2 **no** borra el disco EBS ni la IP: seguirían costando.
@@ -206,7 +216,8 @@ cdk destroy --profile stay -c allowedCidr=$(curl -s https://checkip.amazonaws.co
 
 ## 11. Si algo falla
 
-- **Grafana no carga:** tu IP cambió → repite el `cdk deploy` del paso 3.
+- **Grafana no carga:** espera 1–2 min a que el user-data termine, y confirma que usas la
+  IP de la Output `GrafanaUrl`.
 - **`docker ps` incompleto:** el user-data sigue arrancando; espera 1–2 min. Logs:
   `sudo tail -f /var/log/cloud-init-output.log` (dentro de la instancia por SSM).
 - **Panel "No data":** revisa en Prometheus (interno) que los *targets* estén `up`, o

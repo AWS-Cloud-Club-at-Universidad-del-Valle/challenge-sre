@@ -133,12 +133,16 @@ services:
     restart: unless-stopped
 
   # Jaeger all-in-one: COLLECTOR_OTLP_ENABLED=true makes it accept OTLP on
-  # 4317 (gRPC) / 4318 (HTTP). UI on 16686 is internal-only (SSH tunnel on EC2).
+  # 4317 (gRPC) / 4318 (HTTP). UI on 16686 is published to the host so the
+  # student can open it directly by public IP (lab is educational). The
+  # Security Group still scopes 16686 to the student's own IP (allowedCidr).
   jaeger:
     image: jaegertracing/all-in-one:1.60
     container_name: obs-lab-jaeger
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
     networks:
       - obsnet
     restart: unless-stopped

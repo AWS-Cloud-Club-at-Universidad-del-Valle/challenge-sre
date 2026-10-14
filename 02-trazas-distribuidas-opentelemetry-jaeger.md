@@ -33,23 +33,19 @@ instrumentados con **OpenTelemetry**, propagan el contexto con la cabecera está
 
 ---
 
-## 2. Abrir Jaeger (túnel SSM)
+## 2. Abrir Jaeger
 
-Jaeger (puerto 16686) está **cerrado a internet** por seguridad. Accedes por un túnel SSM.
-Usa el `JaegerTunnelCommand` que CDK imprimió, o:
+Jaeger se abre **directamente por la IP pública** (sin túnel). Usa la Output `JaegerUrl`
+que imprimió CDK, o arma la URL con la IP pública:
 
-```bash
-aws ssm start-session \
-  --target <ID-INSTANCIA> \
-  --document-name AWS-StartPortForwardingSession \
-  --parameters '{"portNumber":["16686"],"localPortNumber":["16686"]}' \
-  --profile stay
-```
-
-Déjalo corriendo y abre en el navegador: **http://localhost:16686**
+**http://<IP-PUBLICA>:16686**
 
 **Resultado esperado:** la UI de Jaeger. En el desplegable *Service* verás
 `obs-lab-api` y `obs-lab-service-b`.
+
+> En este lab educativo el puerto 16686 está abierto a internet (`0.0.0.0/0`). Jaeger no
+> tiene autenticación, así que **destruye el stack al terminar** para no dejar las trazas
+> expuestas. Para restringirlo a tu IP, redepliega con `-c allowedCidr=<tu-ip>/32`.
 
 ---
 
@@ -108,8 +104,8 @@ Flujo típico de investigación:
 
 - **No aparecen servicios en Jaeger:** haz primero un `curl .../checkout` (paso 3); Jaeger
   solo muestra servicios que ya enviaron spans.
-- **El túnel SSM no abre:** confirma que el *Session Manager plugin* está instalado y que
-  usas el `<ID-INSTANCIA>` correcto (Output `SsmSessionCommand`).
+- **La UI de Jaeger no carga:** espera a que el user-data termine (1–2 min) y usa la IP de
+  la Output `JaegerUrl`.
 - **La traza tiene un solo span:** significa que el contexto no se propagó. Verifica que
   llamaste a `/checkout` (que invoca a `service-b`), no a un endpoint simple como `/health`.
 
@@ -122,5 +118,5 @@ La limpieza es la misma de la Parte 1 (un solo comando elimina todo):
 
 ```bash
 cd cdk
-cdk destroy --profile stay -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32
+cdk destroy --profile stay
 ```

@@ -1,7 +1,7 @@
 """ObsLabStack — provisions one EC2 that auto-boots the docker-compose lab.
 
 The stack creates: the default VPC (lookup) + a public subnet, a least-privilege
-Security Group (only 22/3000/optional-8000 from the caller's CIDR), an IAM role
+Security Group (22/3000/16686/optional-8000 from the caller's CIDR), an IAM role
 with AmazonSSMManagedInstanceCore (NO X-Ray), a t3.small Amazon Linux 2023
 instance with a 20 GiB gp3 root volume, an S3 asset bundling the lab code, and
 cloud-init user-data that installs Docker + the Compose plugin, pulls+unpacks
@@ -31,13 +31,22 @@ class ObsLabStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # --- Required context: the CIDR allowed to reach the instance ---------
+        # --- Access scope -----------------------------------------------------
+        # Educational lab: by default the UIs are open to the whole internet
+        # (0.0.0.0/0). Pass -c allowedCidr=<ip>/32 to restrict access to a
+        # single IP instead. publicAccess defaults to True.
         allowed_cidr = self.node.try_get_context("allowedCidr")
+        public_access = self.node.try_get_context("publicAccess")
+        if isinstance(public_access, str):
+            public_access = public_access.lower() not in ("false", "0", "no")
         if not allowed_cidr:
-            raise ValueError(
-                "Missing required context 'allowedCidr'. Pass your public IP, "
-                "e.g.  -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32"
-            )
+            if public_access is False:
+                raise ValueError(
+                    "publicAccess is disabled but no allowedCidr was given. "
+                    "Pass your public IP, e.g. "
+                    "-c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32"
+                )
+            allowed_cidr = "0.0.0.0/0"
 
         # Optional context ----------------------------------------------------
         key_name = self.node.try_get_context("keyName")
@@ -61,16 +70,19 @@ class ObsLabStack(Stack):
             "ObsLabSg",
             vpc=vpc,
             security_group_name="obs-lab-sg",
-            description="obs-lab: SSH + Grafana (+optional API), scoped to the caller CIDR",
+            description="obs-lab: SSH + Grafana + Jaeger (+optional API)",
             allow_all_outbound=True,
         )
         peer = ec2.Peer.ipv4(allowed_cidr)
-        sg.add_ingress_rule(peer, ec2.Port.tcp(22), "SSH from allowed CIDR")
-        sg.add_ingress_rule(peer, ec2.Port.tcp(3000), "Grafana UI from allowed CIDR")
+        scope_desc = "anywhere" if allowed_cidr == "0.0.0.0/0" else "allowed CIDR"
+        sg.add_ingress_rule(peer, ec2.Port.tcp(22), f"SSH from {scope_desc}")
+        sg.add_ingress_rule(peer, ec2.Port.tcp(3000), f"Grafana UI from {scope_desc}")
+        # Jaeger UI reachable directly by public IP (educational lab, no tunnel).
+        sg.add_ingress_rule(peer, ec2.Port.tcp(16686), f"Jaeger UI from {scope_desc}")
         if open_api_port:
-            sg.add_ingress_rule(peer, ec2.Port.tcp(8000), "API from allowed CIDR")
-        # Ports 9090/3100/4317/4318/16686 are intentionally NEVER opened; they
-        # stay on the internal docker network and are reached via SSM/SSH tunnel.
+            sg.add_ingress_rule(peer, ec2.Port.tcp(8000), f"API from {scope_desc}")
+        # Ports 9090/3100/4317/4318 stay on the internal docker network only;
+        # they are reached via SSM/SSH tunnel if ever needed.
 
         # --- IAM role (SSM only; NO X-Ray) -----------------------------------
         role = iam.Role(
@@ -165,16 +177,9 @@ class ObsLabStack(Stack):
         )
         CfnOutput(
             self,
-            "JaegerTunnelCommand",
-            value=(
-                f"aws ssm start-session --target {instance.instance_id} "
-                "--document-name AWS-StartPortForwardingSession "
-                '--parameters \'{"portNumber":["16686"],"localPortNumber":["16686"]}\' '
-                "--profile stay   "
-                "# SSH alternative: ssh -i ec2-docker-api-key.pem "
-                f"-L 16686:localhost:16686 ec2-user@{instance.instance_public_ip}"
-            ),
-            description="Port-forward Jaeger UI (16686) via SSM, or the SSH -L alternative",
+            "JaegerUrl",
+            value=f"http://{instance.instance_public_ip}:16686",
+            description="Jaeger UI (open directly by public IP; scoped to your CIDR)",
         )
 
     def _user_data_commands(self, asset: s3_assets.Asset) -> list:

@@ -36,10 +36,13 @@ cd cdk
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 cdk bootstrap aws://550428926318/us-east-1 --profile stay
-cdk deploy -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32 --profile stay
+cdk deploy --profile stay                 # acceso abierto a internet (lab educativo)
 # ... usa el lab ...
-cdk destroy -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32 --profile stay
+cdk destroy --profile stay
 ```
+
+Para restringir el acceso a tu propia IP: añade
+`-c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32` al `cdk deploy`.
 
 Tras `cdk deploy`, abre Grafana en `http://<PublicIp>:3000` (output `GrafanaUrl`).
 
@@ -70,5 +73,7 @@ apagado por defecto (`OTEL_ENABLED=false`); en EC2 el `.env` lo genera el *user-
 
 No se versionan credenciales. Usa `.env` (ignorado por git) a partir de `.env.example`. En
 EC2 las aplicaciones usan el IAM role `obs-lab-ec2-role`; no se incrustan llaves en el repo
-ni en imágenes. El Security Group abre solo 22/3000/8000 a tu IP (`-c allowedCidr`); los
-puertos internos (9090/3100/4317/4318/16686) se alcanzan por SSM o túnel SSH.
+ni en imágenes. Por defecto (lab educativo) el Security Group abre 22/3000/8000/16686 a
+todo internet (`0.0.0.0/0`); pasa `-c allowedCidr=<ip>/32` para restringirlo a una sola IP.
+Los puertos internos (9090/3100/4317/4318) se alcanzan por SSM o túnel SSH. Con acceso
+abierto, cambia la contraseña de Grafana y destruye el stack al terminar.
