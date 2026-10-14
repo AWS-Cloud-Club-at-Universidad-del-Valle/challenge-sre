@@ -1,0 +1,25 @@
+{
+  "project_type": "Greenfield educational observability lab: two Python FastAPI services + a Docker Compose observability stack (Prometheus, Loki, Grafana Alloy, Grafana, node_exporter, OTel Collector, Jaeger). Same compose intended to run on a single EC2 t3.small (Amazon Linux 2023).",
+  "language": "Python 3.12 (FastAPI apps) + YAML/JSON config + Markdown (Spanish tutorials)",
+  "build_system": "Docker + Docker Compose v2. Each FastAPI service has its own Dockerfile and pinned requirements.txt. No monorepo tooling. Quirk: everything communicates over the internal docker network 'obsnet'; only grafana(3000) and api(8000) publish host ports, the rest are internal-only (reached via SSH tunnel on EC2).",
+  "test_framework": "pytest + fastapi TestClient (tests/test_api.py). Run in a local venv or inside the app container.",
+  "build_command": "docker compose config && docker compose build",
+  "test_command": "pytest tests/ (install app/requirements.txt first in a venv)",
+  "verification_instructions": "1) `docker compose config` must be valid. 2) `docker compose build` all images. 3) `pytest tests/` passes (200/400/404/500/slow). 4) `docker compose up -d`; `docker compose ps` all healthy. 5) Prometheus (via tunnel/internal) targets up: node_exporter, api, service-b, prometheus self. 6) Grafana datasources green, both dashboards auto-loaded. 7) Run scripts/load_test.py; API dashboard graphs change. 8) Logs queryable in Loki via Grafana. 9) Hit the cross-service endpoint; Jaeger UI shows ONE trace_id with parent-child spans across api and service-b. 10) trace_id in API logs links Loki->Jaeger. 11) `docker compose down` cleans up. Distinguish 'resultado esperado' from verified results in tutorials; do NOT fabricate command outputs.",
+  "snapshot_or_generated_files": "null (no generated/checked-in artifacts). Grafana dashboard JSON and provisioning YAML are hand-authored, not generated.",
+  "environment_constraints": "Do NOT create any AWS resources or run AWS calls that create/modify resources. AWS facts are pre-verified and must be used verbatim in tutorials: CLI profile `stay` (lowercase), account 550428926318, IAM user arn:aws:iam::550428926318:user/JuanHoyos, region us-east-1, existing key pair `ec2-docker-api-key`, default VPC vpc-059b7fcb3ae44690e (172.31.0.0/16). MUST NOT touch Lambdas soc-challenge-*, SocChallenge-*, lumen-production-*. All lab resources use prefix obs-lab and tag Project=obs-lab. Jaeger all-in-one REQUIRES env COLLECTOR_OTLP_ENABLED=true to accept OTLP on 4317/4318. OTel Collector contrib 0.109 has NO native jaeger exporter: use the `otlp` exporter to jaeger:4317.",
+  "contribution_requirements": "No credentials in repo/images/logs/committed env. Use .env.example for configurable values and .gitignore. Repo not yet git-initialized (init optional, commit optional). Avoid high-cardinality Prometheus labels (no user ids, IPs, request ids, raw dynamic path segments) — always use the normalized route template.",
+  "key_patterns": "Prometheus metrics via prometheus-client with route-template labels + latency histogram enabling histogram_quantile p50/p90/p99. Structured JSON logs to stdout with timestamp/severity/method/normalized-route/status/duration/correlation-id/error/trace_id. OTel: FastAPI + httpx/requests auto-instrumentation, OTLP export to collector; avoid duplicate manual spans for auto-instrumented ops, add manual spans only for meaningful internal work. W3C traceparent propagation gives parent-child spans across api->service-b. Grafana provisioned via YAML: Loki derivedFields(trace_id regex) + Jaeger tracesToLogsV2 for correlation.",
+  "pinned_versions": "FastAPI 0.115, Uvicorn 0.32, prometheus-client 0.21, OpenTelemetry SDK 1.27.0, OpenTelemetry instrumentation 0.48b0, Prometheus v2.54, Loki 3.1, Grafana 11.2, Grafana Alloy 1.3, node_exporter 1.8, OTel Collector contrib 0.109, Jaeger 1.60, Amazon Linux 2023.",
+  "relevant_files": [
+    "app/main.py", "app/metrics.py", "app/logging_config.py", "app/otel.py", "app/requirements.txt", "app/Dockerfile",
+    "service-b/main.py", "service-b/otel.py", "service-b/requirements.txt", "service-b/Dockerfile",
+    "config/prometheus/prometheus.yml", "config/loki/loki-config.yml", "config/alloy/config.alloy", "config/otel/otel-collector-config.yml",
+    "config/grafana/provisioning/datasources/datasources.yml", "config/grafana/provisioning/dashboards/dashboards.yml",
+    "config/grafana/dashboards/infra.json", "config/grafana/dashboards/api.json",
+    "docker-compose.yml", "scripts/load_test.py", "tests/test_api.py",
+    ".env.example", ".gitignore", "README.md",
+    "01-metricas-y-logs.md", "02-trazas-distribuidas-opentelemetry-jaeger.md"
+  ],
+  "directory_structure": "app/ (Part-1 FastAPI API, also OTel client used in Part 2); service-b/ (Part-2 downstream FastAPI service); config/prometheus,loki,alloy,otel (backend configs); config/grafana/provisioning/{datasources,dashboards} + config/grafana/dashboards/*.json; scripts/ (load_test.py); tests/ (pytest); repo root: docker-compose.yml, .env.example, .gitignore, README.md, and the two Spanish tutorials."
+}

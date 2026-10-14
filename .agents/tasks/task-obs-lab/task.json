@@ -1,0 +1,7 @@
+{
+  "task_id": "task-obs-lab",
+  "task_description": "Build a complete, reproducible educational AWS observability lab (metrics+logs + distributed tracing) running fully via Docker Compose on internal network obsnet, validated locally. Two FastAPI apps, ~8 containerized services, Grafana dashboards, load-test script, pytest tests, and two exhaustive Spanish Markdown tutorials. No AWS resources are created by this task; tutorials document the real EC2 (t3.small, AL2023) deployment.",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}
