@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 
@@ -28,6 +30,11 @@ PRODUCTS: dict[int, dict] = {
 
 # Upper bound (seconds) for the artificial-slow endpoint, to protect the instance.
 MAX_SLOW_SECONDS = 5.0
+
+# Base URL of the downstream service (service-b) reached over the internal network.
+# The httpx auto-instrumentation injects the W3C traceparent header on this call,
+# so service-b continues the same trace (parent-child spans across both services).
+SERVICE_B_URL = os.getenv("SERVICE_B_URL", "http://service-b:8001")
 
 
 @asynccontextmanager
@@ -65,7 +72,7 @@ def create_app() -> FastAPI:
             "description": "API de demostración para métricas, logs y trazas.",
             "endpoints": [
                 "/health", "/", "/products", "/products/{id}",
-                "/simulate-error", "/simulate-slow", "/metrics",
+                "/simulate-error", "/simulate-slow", "/checkout", "/metrics",
             ],
         }
 
@@ -100,6 +107,29 @@ def create_app() -> FastAPI:
         """Sleep for a capped number of seconds (default 0.5, max MAX_SLOW_SECONDS)."""
         await asyncio.sleep(seconds)
         return {"slept_seconds": seconds, "max_seconds": MAX_SLOW_SECONDS}
+
+    @app.get("/checkout")
+    async def checkout(slow: int = Query(0, ge=0, le=1)) -> dict:
+        """Cross-service endpoint that calls service-b over HTTP.
+
+        A single request flows Client -> api -> service-b. The httpx call is
+        already auto-instrumented and injects the W3C traceparent header, so the
+        downstream span becomes a child of this request's span in the same trace
+        (visible as one trace_id in Jaeger). ?slow=1 routes to service-b's
+        slow-process path to surface the added latency as a longer child span.
+        No manual span is added here to avoid duplicating the auto httpx span.
+        """
+        downstream_path = "/slow-process" if slow else "/process"
+        url = f"{SERVICE_B_URL}{downstream_path}"
+        async with httpx.AsyncClient(timeout=MAX_SLOW_SECONDS + 5.0) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            downstream = response.json()
+        return {
+            "service": "obs-lab-api",
+            "operation": "checkout",
+            "downstream": downstream,
+        }
 
     # prometheus-client scrape endpoint.
     app.add_route("/metrics", metrics_endpoint)

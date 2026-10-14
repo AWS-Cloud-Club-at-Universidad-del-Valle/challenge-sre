@@ -2,9 +2,9 @@
 # `obsnet`. Only grafana (3000) and api (8000) publish host ports; everything
 # else is internal-only and reached via SSH tunnel on EC2.
 #
-# NOTE: service-b, otel-collector and jaeger are added in Part 2 (FEAT-002).
-# The service-b scrape target and the Jaeger datasource are already referenced
-# here/in config so Part 2 only needs to add the services.
+# Part 2 (FEAT-002) adds service-b, otel-collector and jaeger below. Set
+# OTEL_ENABLED=true (see .env.example) to turn tracing on; with it off the whole
+# stack still runs and the OTel wiring is a no-op.
 
 networks:
   obsnet:
@@ -24,8 +24,24 @@ services:
     environment:
       OTEL_ENABLED: "${OTEL_ENABLED:-false}"
       OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}"
+      SERVICE_B_URL: "http://service-b:8001"
     ports:
       - "8000:8000"
+    depends_on:
+      - service-b
+    networks:
+      - obsnet
+    restart: unless-stopped
+
+  service-b:
+    build:
+      context: ./service-b
+    image: obs-lab-service-b:1.0.0
+    container_name: obs-lab-service-b
+    environment:
+      OTEL_ENABLED: "${OTEL_ENABLED:-false}"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4317}"
+    # Internal-only: reached by the api over the obsnet network (no host port).
     networks:
       - obsnet
     restart: unless-stopped
@@ -98,6 +114,31 @@ services:
     depends_on:
       - prometheus
       - loki
+    networks:
+      - obsnet
+    restart: unless-stopped
+
+  # OpenTelemetry Collector (contrib): receives OTLP from api + service-b and
+  # forwards traces to Jaeger over OTLP. Internal-only (4317 gRPC / 4318 HTTP).
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.109.0
+    container_name: obs-lab-otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yml"]
+    volumes:
+      - ./config/otel/otel-collector-config.yml:/etc/otelcol-contrib/config.yml:ro
+    depends_on:
+      - jaeger
+    networks:
+      - obsnet
+    restart: unless-stopped
+
+  # Jaeger all-in-one: COLLECTOR_OTLP_ENABLED=true makes it accept OTLP on
+  # 4317 (gRPC) / 4318 (HTTP). UI on 16686 is internal-only (SSH tunnel on EC2).
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: obs-lab-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
     networks:
       - obsnet
     restart: unless-stopped

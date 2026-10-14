@@ -1,0 +1,51 @@
+# OpenTelemetry Collector (contrib 0.109) configuration for the lab.
+#
+# Pipeline: OTLP receivers (from api + service-b) -> memory_limiter, resource,
+# batch processors -> OTLP exporter to Jaeger's OTLP gRPC endpoint (jaeger:4317).
+#
+# NOTE: the native `jaeger` exporter was REMOVED from the Collector, so we export
+# traces to Jaeger over OTLP (Jaeger all-in-one accepts OTLP when it is started
+# with COLLECTOR_OTLP_ENABLED=true, see docker-compose.yml).
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Guard the Collector against unbounded memory growth under load.
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+  # Tag every span with a Collector-level identity so students can see where
+  # telemetry was pre-processed.
+  resource:
+    attributes:
+      - key: collector.name
+        value: obs-lab-otel-collector
+        action: upsert
+  # Batch spans to reduce the number of export calls.
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+exporters:
+  # Export to Jaeger over OTLP gRPC (TLS disabled on the internal network).
+  otlp:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+service:
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp]
