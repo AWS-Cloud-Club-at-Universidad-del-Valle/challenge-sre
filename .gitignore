@@ -9,6 +9,10 @@ __pycache__/
 .venv/
 .pytest_cache/
 
+# CDK
+cdk/cdk.out/
+cdk/.venv/
+
 # Observability stack data dirs (local volumes)
 data/
 loki/data/
