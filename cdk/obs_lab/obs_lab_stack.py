@@ -49,9 +49,13 @@ class ObsLabStack(Stack):
             allowed_cidr = "0.0.0.0/0"
 
         # Optional context ----------------------------------------------------
+        # SSH key pair is OPTIONAL. By default there is none: access is via SSM
+        # Session Manager (no SSH key needed), which works in any account. Pass
+        # -c keyName=<your-existing-key-pair> only if you want SSH access and
+        # already created that key pair in your own account.
         key_name = self.node.try_get_context("keyName")
-        if key_name == "":
-            key_name = None  # explicit empty => SSM-only, no SSH key pair
+        if not key_name:
+            key_name = None  # no key pair => SSM-only (default)
 
         open_api_port = self.node.try_get_context("openApiPort")
         # context values are strings/bools; default to True when unset

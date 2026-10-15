@@ -53,8 +53,10 @@ To restrict access to your own IP instead of the whole internet, add
 
 - `allowedCidr` (optional): restrict ports 22/3000/8000/16686 to this CIDR.
   Omitted => open to `0.0.0.0/0` (educational default).
-- `keyName` (default `ec2-docker-api-key`): EC2 key pair; pass `-c keyName=""`
-  to omit SSH and use SSM Session Manager only.
+- `keyName` (optional, default none): by default there is NO SSH key pair and
+  you access the instance via SSM Session Manager (works in any account). Pass
+  `-c keyName=<your-existing-key-pair>` only if you want SSH and already created
+  that key pair in your account.
 - `openApiPort` (default `true`): open port 8000 (the API) to `allowedCidr`.
 
 ## Outputs
