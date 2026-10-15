@@ -24,3 +24,6 @@ prometheus/data/
 
 # Artefactos internos del workflow (no necesarios para el estudiante)
 .agents/
+
+# Subproyecto Remotion (videos/diagramas) - no se versiona
+video/
