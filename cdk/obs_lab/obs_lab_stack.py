@@ -189,28 +189,53 @@ class ObsLabStack(Stack):
         The asset bucket/key are CDK tokens; interpolating them into the shell
         strings makes the synthesized template carry the real references.
         """
+        bucket = asset.s3_bucket_name
+        key = asset.s3_object_key
+        region = self.region
         return [
-            "set -euxo pipefail",
-            "dnf update -y",
-            "dnf install -y docker unzip",
+            # Log everything to a dedicated file AND to cloud-init-output.log.
+            "exec > >(tee -a /var/log/obs-lab-bootstrap.log) 2>&1",
+            "set -x",
+            'echo "[obs-lab] bootstrap start: $(date -u)"',
+
+            # --- Packages (do NOT abort the whole script on a transient fail) ---
+            "dnf install -y docker unzip tar || dnf install -y docker unzip tar",
+            # AWS CLI v2 is needed for the s3 download; AL2023 may not ship it.
+            "command -v aws || dnf install -y awscli || dnf install -y aws-cli || true",
             "systemctl enable --now docker",
-            "usermod -aG docker ec2-user",
-            # docker compose v2 plugin
+            "usermod -aG docker ec2-user || true",
+
+            # --- docker compose v2 plugin (retry the download) ---
             "mkdir -p /usr/local/lib/docker/cli-plugins",
             (
-                'curl -SL "https://github.com/docker/compose/releases/download/'
-                f'{COMPOSE_VERSION}/docker-compose-linux-x86_64" '
-                "-o /usr/local/lib/docker/cli-plugins/docker-compose"
+                "for i in 1 2 3; do curl -fSL "
+                f'"https://github.com/docker/compose/releases/download/{COMPOSE_VERSION}'
+                '/docker-compose-linux-x86_64" '
+                "-o /usr/local/lib/docker/cli-plugins/docker-compose && break; sleep 5; done"
             ),
             "chmod +x /usr/local/lib/docker/cli-plugins/docker-compose",
-            # fetch the lab code from the CDK asset bucket
+            "docker compose version || true",
+
+            # --- Fetch the lab code from the CDK asset bucket (retry) ---
             "mkdir -p /opt/obs-lab",
             (
-                f"aws s3 cp s3://{asset.s3_bucket_name}/{asset.s3_object_key} "
-                f"/tmp/lab.zip --region {self.region}"
+                "for i in 1 2 3 4 5; do "
+                f"aws s3 cp s3://{bucket}/{key} /tmp/lab.zip --region {region} && break; "
+                'echo "[obs-lab] s3 cp retry $i"; sleep 10; done'
             ),
+            # Fail loudly (into the log) if the download never succeeded.
+            'test -f /tmp/lab.zip || { echo "[obs-lab] FATAL: no se pudo descargar el codigo del lab (revisa IAM/bootstrap)"; exit 1; }',
             "unzip -o /tmp/lab.zip -d /opt/obs-lab",
-            # .env with tracing ON by default for the EC2 lab
+
+            # The asset may unpack with the compose file either at the root or in
+            # a subfolder; normalize so /opt/obs-lab/docker-compose.yml exists.
+            (
+                'if [ ! -f /opt/obs-lab/docker-compose.yml ]; then '
+                'd=$(dirname "$(find /opt/obs-lab -maxdepth 3 -name docker-compose.yml | head -1)"); '
+                'if [ -n "$d" ] && [ "$d" != "/opt/obs-lab" ]; then cp -a "$d"/. /opt/obs-lab/; fi; fi'
+            ),
+
+            # --- .env with tracing ON by default ---
             "cat > /opt/obs-lab/.env <<'ENV'",
             "GF_SECURITY_ADMIN_PASSWORD=changeme",
             "OTEL_ENABLED=true",
@@ -218,8 +243,13 @@ class ObsLabStack(Stack):
             "LOAD_TEST_RATE=3",
             "LOAD_TEST_DURATION=60",
             "ENV",
-            # idempotent bring-up
+
+            # --- Bring the stack up (build can take several minutes on t3.small) ---
             "cd /opt/obs-lab",
+            'echo "[obs-lab] docker compose build: $(date -u)"',
             "docker compose build",
+            'echo "[obs-lab] docker compose up: $(date -u)"',
             "docker compose up -d",
+            'echo "[obs-lab] bootstrap done: $(date -u)"',
+            "docker compose ps",
         ]
