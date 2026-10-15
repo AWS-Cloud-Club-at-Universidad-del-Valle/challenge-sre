@@ -11,8 +11,8 @@ this file is only a quick reference, not a tutorial.
 
 ## Prerequisites
 
-- AWS CLI v2 with the `stay` profile configured (account `550428926318`,
-  region `us-east-1`).
+- AWS CLI v2 with a profile configured for your own account (region `us-east-1`
+  by default; override with `CDK_DEFAULT_REGION`).
 - Node.js (for the `cdk` CLI) and Python 3.12 (for this app).
 - The CDK CLI: `npm i -g aws-cdk`.
 

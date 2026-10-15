@@ -12,10 +12,10 @@ from obs_lab.obs_lab_stack import ObsLabStack
 
 app = cdk.App()
 
-# Prefer the ambient CDK environment (set by the CLI from the active profile)
-# so `from_lookup` resolves against the student's real account/region. Fall
-# back to the pre-verified lab account/region when running offline.
-account = os.environ.get("CDK_DEFAULT_ACCOUNT", "550428926318")
+# Resolve the target account/region from the ambient CDK environment, which the
+# CLI sets from the active AWS profile (AWS_PROFILE or --profile). This way the
+# stack always deploys to the student's own account, never a hardcoded one.
+account = os.environ.get("CDK_DEFAULT_ACCOUNT")
 region = os.environ.get("CDK_DEFAULT_REGION", "us-east-1")
 
 ObsLabStack(
