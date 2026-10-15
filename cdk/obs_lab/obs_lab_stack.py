@@ -169,11 +169,8 @@ class ObsLabStack(Stack):
         CfnOutput(
             self,
             "SsmSessionCommand",
-            value=(
-                f"aws ssm start-session --target {instance.instance_id} "
-                "--profile stay"
-            ),
-            description="Open an SSM shell on the instance (no SSH key needed)",
+            value=f"aws ssm start-session --target {instance.instance_id}",
+            description="Open an SSM shell on the instance (add --profile <your-profile> if needed)",
         )
         CfnOutput(
             self,

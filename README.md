@@ -36,10 +36,14 @@ Flujo resumido (detalle en la Parte 1):
 cd cdk
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-cdk bootstrap aws://550428926318/us-east-1 --profile stay
-cdk deploy --profile stay                 # acceso abierto a internet (lab educativo)
+
+# Usa TU perfil de AWS CLI (reemplaza <tu-perfil> por el tuyo, p.ej. default):
+export AWS_PROFILE=<tu-perfil>
+
+cdk bootstrap                 # solo la primera vez en la cuenta/region
+cdk deploy                    # acceso abierto a internet (lab educativo)
 # ... usa el lab ...
-cdk destroy --profile stay
+cdk destroy
 ```
 
 Para restringir el acceso a tu propia IP: añade

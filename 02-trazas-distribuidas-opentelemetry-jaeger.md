@@ -118,5 +118,5 @@ La limpieza es la misma de la Parte 1 (un solo comando elimina todo):
 
 ```bash
 cd cdk
-cdk destroy --profile stay
+cdk destroy
 ```

@@ -27,25 +27,32 @@ pip install -r requirements.txt
 
 ## Commands
 
-Pass your public IP as `allowedCidr` so the Security Group only lets you in:
+Set your AWS CLI profile once (replace `<your-profile>`, e.g. `default`):
 
 ```bash
+export AWS_PROFILE=<your-profile>
+
 # one-time per account/region
-cdk bootstrap aws://550428926318/us-east-1 --profile stay
+cdk bootstrap
 
 # validate locally (creates nothing)
-cdk synth -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32 --profile stay
+cdk synth
 
 # deploy for real (creates the EC2 + supporting resources)
-cdk deploy -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32 --profile stay
+# Access is open to the internet (0.0.0.0/0) by default for this educational lab.
+cdk deploy
 
 # tear everything down
-cdk destroy -c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32 --profile stay
+cdk destroy
 ```
+
+To restrict access to your own IP instead of the whole internet, add
+`-c allowedCidr=$(curl -s https://checkip.amazonaws.com)/32` to `cdk deploy`.
 
 ## Context parameters
 
-- `allowedCidr` (required): the CIDR allowed to reach ports 22/3000/8000.
+- `allowedCidr` (optional): restrict ports 22/3000/8000/16686 to this CIDR.
+  Omitted => open to `0.0.0.0/0` (educational default).
 - `keyName` (default `ec2-docker-api-key`): EC2 key pair; pass `-c keyName=""`
   to omit SSH and use SSM Session Manager only.
 - `openApiPort` (default `true`): open port 8000 (the API) to `allowedCidr`.

@@ -38,7 +38,13 @@ resto (Prometheus, Loki, OTel) queda interno.
 
 ## 2. Requisitos previos
 
-- **AWS CLI** con el perfil `stay` configurado (`aws sts get-caller-identity --profile stay`).
+- **AWS CLI** con un perfil configurado. Exporta el tuyo una sola vez para no repetirlo en
+  cada comando (reemplaza `<tu-perfil>` por el nombre de tu perfil, p. ej. `default`):
+
+  ```bash
+  export AWS_PROFILE=<tu-perfil>
+  aws sts get-caller-identity   # comprueba que apunta a tu cuenta
+  ```
 - **Node.js** y el CDK CLI: `npm install -g aws-cdk` (comprueba con `cdk --version`).
 - **Python 3.12+**.
 
@@ -53,11 +59,13 @@ cd cdk
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
+# (usa el perfil que exportaste en AWS_PROFILE; añade --profile <tu-perfil> si no lo exportaste)
+
 # Solo la primera vez en la cuenta/región:
-cdk bootstrap --profile stay
+cdk bootstrap
 
 # Despliega (acceso abierto a internet por defecto, lab educativo):
-cdk deploy --profile stay --require-approval never
+cdk deploy --require-approval never
 ```
 
 > **Acceso.** Por defecto el lab abre Grafana, Jaeger y la API a todo internet
@@ -68,7 +76,7 @@ cdk deploy --profile stay --require-approval never
 
 ```
 ObsLabStack.GrafanaUrl = http://<IP-PUBLICA>:3000
-ObsLabStack.SsmSessionCommand = aws ssm start-session --target <ID> --profile stay
+ObsLabStack.SsmSessionCommand = aws ssm start-session --target <ID>
 ```
 
 Anota la `GrafanaUrl`. La EC2 sigue instalando los contenedores unos minutos más.
@@ -76,7 +84,7 @@ Anota la `GrafanaUrl`. La EC2 sigue instalando los contenedores unos minutos má
 **Cómo comprobar que ya levantó todo** (reemplaza `<ID>` por el de la Output):
 
 ```bash
-aws ssm start-session --target <ID> --profile stay
+aws ssm start-session --target <ID>
 # ya dentro de la instancia:
 docker ps        # debes ver 9 contenedores "Up"
 exit
@@ -206,7 +214,7 @@ Mientras la EC2 esté encendida genera coste (~$15/mes si queda 24/7, + EBS + IP
 
 ```bash
 cd cdk
-cdk destroy --profile stay
+cdk destroy
 ```
 
 > Un simple *stop* de la EC2 **no** borra el disco EBS ni la IP: seguirían costando.
