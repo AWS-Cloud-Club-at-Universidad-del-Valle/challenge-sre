@@ -104,60 +104,162 @@ Si `docker ps` aún no muestra todo, espera 1–2 min: el *user-data* sigue arra
 
 ---
 
-## 5. Dashboard de CPU
+## 5. Dashboard de CPU (paso a paso, muy detallado)
 
 > `node_exporter` mide el **sistema operativo** de la EC2 (CPU, memoria, disco, red). **No
 > es Amazon CloudWatch** (eso es un servicio aparte de AWS). Aquí todas las métricas de
 > infraestructura vienen de `node_exporter`.
 
-1. **Dashboards → New → New dashboard → Add visualization**.
-2. Fuente de datos: **Prometheus**.
-3. Pega esta consulta (uso de CPU en %):
+Antes de empezar, un mapa rápido de la pantalla de Grafana cuando editas un panel:
+- **Menú lateral izquierdo** (iconos): desde ahí llegas a *Dashboards*.
+- Al editar un panel verás **la gráfica arriba a la izquierda**, **el editor de consulta
+  (query) abajo**, y **una columna de opciones a la derecha** con secciones plegables
+  (*Panel options*, *Standard options*, etc.). La **unidad (Unit)** vive en esa columna.
+
+### 5.1. Crear el dashboard y el primer panel
+
+1. En el **menú lateral izquierdo**, haz clic en **Dashboards**.
+2. Arriba a la derecha, botón azul **New** → **New dashboard**.
+3. Verás una tarjeta grande que dice **Add visualization**. Haz clic en ella.
+4. Grafana te pide elegir la fuente de datos (*data source*). Haz clic en **Prometheus**
+   (ya viene preconfigurada en el lab). Se abre el **editor del panel**.
+
+### 5.2. Escribir la consulta
+
+5. Mira la parte **inferior** del editor: hay una pestaña **Query**. Debajo verás un campo
+   de texto (el editor de consulta). Si está en modo "Builder", pulsa el botón **Code**
+   (arriba a la derecha de ese recuadro) para escribir texto libre.
+6. Borra lo que haya y **pega** exactamente esta consulta (uso de CPU en %):
 
    ```promql
    100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
    ```
 
-4. Panel: `Time series`, **Unit** `Percent (0-100)`, **Title** "Uso de CPU (%)".
-5. **Apply** → arriba fija *refresh* `10s` → **Save dashboard** ("CPU de la instancia").
+7. Pulsa el botón **Run queries** (o el icono de refрескar junto al editor). Arriba, en la
+   gráfica, debería dibujarse una línea. Si dice *No data*, revisa el paso 7 (generar
+   tráfico) o amplía el rango de tiempo (arriba a la derecha, p. ej. *Last 15 minutes*).
 
-**Resultado esperado:** una línea con el % de CPU. Sube al generar tráfico (paso 7).
+### 5.3. Ponerle tipo, unidad y título (la columna derecha)
+
+8. **Tipo de panel:** arriba a la derecha de la gráfica hay un desplegable que normalmente
+   dice **Time series**. Déjalo en **Time series**.
+9. **Unidad (Unit) — aquí es donde se coloca:** en la **columna derecha**, busca la sección
+   **Standard options** y haz clic para expandirla. El **primer campo es `Unit`**. Haz clic
+   en él, escribe `percent` y elige **Percent (0-100)** (grupo *Misc*).
+10. En esa misma sección **Standard options**, pon **Min = 0** y **Max = 100**.
+11. **Título:** arriba del todo de la columna derecha, en la sección **Panel options**,
+    campo **Title**: escribe `Uso de CPU (%)`.
+
+### 5.4. Guardar
+
+12. Arriba a la derecha, botón **Apply** (vuelve a la vista del dashboard).
+13. Fija el refresco: arriba a la derecha del dashboard, junto al selector de tiempo, hay un
+    desplegable de **auto-refresh**; elige **10s**.
+14. Botón **Save dashboard** (icono de disquete, arriba a la derecha). Ponle el nombre
+    **CPU de la instancia** y pulsa **Save**.
+
+**Resultado esperado:** una gráfica con una línea del % de CPU. En reposo rondará un valor
+bajo; subirá al generar tráfico (sección 7).
+
+**Si falla:**
+- *No data*: el target `node_exporter` puede tardar; genera tráfico (sección 7) y amplía el
+  rango de tiempo. Si no, revisa la sección 11 (Troubleshooting).
+- No encuentras **Unit**: asegúrate de estar **editando** el panel (no solo viéndolo) y de
+  haber expandido **Standard options** en la columna derecha.
 
 ---
 
-## 6. Dashboard de respuestas de la API
+## 6. Dashboard de respuestas de la API (paso a paso)
 
-Crea otro dashboard (**Dashboards → New**) y añade un panel por cada consulta. Todos usan
-la fuente **Prometheus**.
+Aquí crearás **un dashboard nuevo con varios paneles**. El procedimiento para CADA panel es
+siempre el mismo (lo repites cambiando la consulta, el tipo y la unidad):
 
-**Solicitudes por segundo** — `Stat`:
-```promql
-sum(rate(api_requests_total[5m]))
-```
+> **Receta para añadir un panel** (repítela por cada uno de abajo):
+> 1. En el dashboard, arriba a la derecha, botón **Add** → **Visualization** (si es el
+>    primer panel, usa la tarjeta **Add visualization**).
+> 2. Fuente de datos: **Prometheus**.
+> 3. Abajo, pestaña **Query**, modo **Code**, pega la consulta.
+> 4. Pulsa **Run queries** para ver la gráfica.
+> 5. Columna derecha: **Panel options → Title** (el nombre del panel).
+> 6. Columna derecha: **Standard options → Unit** (la unidad indicada).
+> 7. Si el panel usa leyenda `{{...}}`: en el editor de query, campo **Legend**, escribe
+>    el texto indicado (p. ej. `{{route}}`).
+> 8. Botón **Apply**.
 
-**Solicitudes por endpoint** — `Time series`, leyenda `{{route}}`:
-```promql
-sum by (route) (rate(api_requests_total[5m]))
-```
+### 6.1. Crear el dashboard
 
-**Latencia p50/p90/p99** — `Time series`, unidad `s`. Añade 3 queries cambiando `0.50`,
-`0.90`, `0.99`:
-```promql
-histogram_quantile(0.90, sum by (le) (rate(api_request_duration_seconds_bucket[5m])))
-```
+1. **Menú izquierdo → Dashboards → New → New dashboard**.
+2. Para el primer panel, haz clic en **Add visualization** y elige **Prometheus**.
 
-**Códigos HTTP 2xx/4xx/5xx** — `Time series`, leyenda `{{status_class}}`:
-```promql
-sum by (status_class) (rate(api_requests_by_status_class_total[5m]))
-```
+### 6.2. Panel 1 — Solicitudes por segundo
 
-**Tasa de error (5xx)** — `Stat`, unidad `percent (0-100)`:
-```promql
-100 * sum(rate(api_requests_by_status_class_total{status_class="5xx"}[5m]))
-      / sum(rate(api_requests_total[5m]))
-```
+- **Tipo** (desplegable arriba de la gráfica): **Stat**.
+- **Query** (modo Code):
+  ```promql
+  sum(rate(api_requests_total[5m]))
+  ```
+- **Standard options → Unit**: escribe `reqps` → **requests/sec (rps)** (grupo *Throughput*).
+- **Title**: `Solicitudes por segundo`. → **Apply**.
 
-**Save dashboard** ("Respuestas de la API").
+### 6.3. Panel 2 — Solicitudes por endpoint
+
+- **Tipo**: **Time series**.
+- **Query**:
+  ```promql
+  sum by (route) (rate(api_requests_total[5m]))
+  ```
+- **Legend** (campo *Legend* del editor de query): `{{route}}`.
+- **Unit**: `reqps`. **Title**: `Solicitudes por endpoint`. → **Apply**.
+
+### 6.4. Panel 3 — Latencia p50 / p90 / p99
+
+- **Tipo**: **Time series**. **Unit**: escribe `s` → **seconds (s)** (grupo *Time*).
+- Este panel lleva **tres consultas** en el mismo panel. En el editor de query verás el
+  botón **+ Query** (o *Add query*) para añadir filas. Añade tres y pega una en cada una,
+  cambiando solo el número `0.50`, `0.90`, `0.99`:
+  ```promql
+  histogram_quantile(0.50, sum by (le) (rate(api_request_duration_seconds_bucket[5m])))
+  ```
+  ```promql
+  histogram_quantile(0.90, sum by (le) (rate(api_request_duration_seconds_bucket[5m])))
+  ```
+  ```promql
+  histogram_quantile(0.99, sum by (le) (rate(api_request_duration_seconds_bucket[5m])))
+  ```
+- **Title**: `Latencia (p50/p90/p99)`. → **Apply**.
+
+### 6.5. Panel 4 — Códigos HTTP 2xx / 4xx / 5xx
+
+- **Tipo**: **Time series**.
+- **Query**:
+  ```promql
+  sum by (status_class) (rate(api_requests_by_status_class_total[5m]))
+  ```
+- **Legend**: `{{status_class}}`. **Unit**: `reqps`. **Title**: `Respuestas por clase HTTP`.
+  → **Apply**.
+
+### 6.6. Panel 5 — Tasa de error (5xx)
+
+- **Tipo**: **Stat**.
+- **Query**:
+  ```promql
+  100 * sum(rate(api_requests_by_status_class_total{status_class="5xx"}[5m]))
+        / sum(rate(api_requests_total[5m]))
+  ```
+- **Unit**: escribe `percent` → **Percent (0-100)**. **Title**: `Tasa de error 5xx (%)`.
+  → **Apply**.
+
+### 6.7. Guardar el dashboard
+
+- Botón **Save dashboard** (disquete, arriba a la derecha) → nombre **Respuestas de la API**
+  → **Save**.
+
+**Resultado esperado:** cinco paneles. Están "planos" hasta que generes tráfico (sección 7);
+entonces verás subir las req/s, aparecer barras 4xx/5xx y moverse la latencia.
+
+> **Atajo:** el lab ya trae estos dashboards provisionados automáticamente
+> (`config/grafana/dashboards/`). Construirlos a mano es el ejercicio de aprendizaje; si solo
+> quieres verlos, están en **Dashboards** sin crear nada.
 
 > Ya hay dashboards equivalentes provisionados automáticamente
 > (`config/grafana/dashboards/`). Este ejercicio es para que entiendas las consultas.
