@@ -27,3 +27,6 @@ prometheus/data/
 
 # Subproyecto Remotion (videos/diagramas) - no se versiona
 video/
+
+# Cache de lookups de CDK (especifico de cada cuenta, NO versionar)
+cdk/cdk.context.json
